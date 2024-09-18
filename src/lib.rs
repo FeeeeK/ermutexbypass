@@ -1,13 +1,12 @@
 use retour::static_detour;
 use std::ffi::{c_void, CString};
-use std::iter;
 use std::mem::transmute;
 use windows::core::{PCSTR, PCWSTR};
 use windows::Win32::Foundation::{
     GetLastError, SetLastError, BOOL, ERROR_ALREADY_EXISTS, HANDLE, NO_ERROR,
 };
 use windows::Win32::Security::SECURITY_ATTRIBUTES;
-use windows::Win32::System::LibraryLoader::{GetModuleHandleW, GetProcAddress};
+use windows::Win32::System::LibraryLoader::{GetModuleHandleA, GetProcAddress};
 use windows::Win32::System::SystemServices::{
     DLL_PROCESS_ATTACH, DLL_PROCESS_DETACH, DLL_THREAD_ATTACH, DLL_THREAD_DETACH,
 };
@@ -35,21 +34,21 @@ fn hooked_create_mutex_w(
 }
 
 fn get_module_symbol_address(module: &str, symbol: &str) -> Option<usize> {
-    let module = module
-        .encode_utf16()
-        .chain(iter::once(0))
-        .collect::<Vec<u16>>();
+    let module = CString::new(module).unwrap();
     let symbol = CString::new(symbol).unwrap();
     unsafe {
-        let handle = GetModuleHandleW(PCWSTR(module.as_ptr() as _)).unwrap();
-        match GetProcAddress(handle, PCSTR(symbol.as_ptr() as _)) {
-            Some(func) => Some(func as usize),
-            None => None,
+        match GetModuleHandleA(PCSTR(module.as_ptr() as _)) {
+            Ok(handle) => match GetProcAddress(handle, PCSTR(symbol.as_ptr() as _)) {
+                Some(func) => Some(func as usize),
+                None => None,
+            },
+            _ => None,
         }
     }
 }
 
 #[no_mangle]
+#[allow(non_snake_case)]
 unsafe extern "system" fn DllMain(_hinst: HANDLE, reason: u32, _reserved: *mut c_void) -> BOOL {
     match reason {
         DLL_PROCESS_ATTACH => {
