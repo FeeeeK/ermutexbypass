@@ -1,5 +1,5 @@
 use retour::static_detour;
-use std::ffi::{c_void, CString};
+use std::ffi::CString;
 use std::mem::transmute;
 use windows::core::{PCSTR, PCWSTR};
 use windows::Win32::Foundation::{
@@ -49,7 +49,7 @@ fn get_module_symbol_address(module: &str, symbol: &str) -> Option<usize> {
 
 #[no_mangle]
 #[allow(non_snake_case)]
-unsafe extern "system" fn DllMain(_hinst: HANDLE, reason: u32, _reserved: *mut c_void) -> BOOL {
+unsafe extern "system" fn DllMain(_hinst: usize, reason: u32, _reserved: usize) -> bool {
     match reason {
         DLL_PROCESS_ATTACH => {
             let address = get_module_symbol_address("kernel32.dll", "CreateMutexW").unwrap();
@@ -64,5 +64,5 @@ unsafe extern "system" fn DllMain(_hinst: HANDLE, reason: u32, _reserved: *mut c
         DLL_THREAD_DETACH => {}
         _ => {}
     };
-    return BOOL::from(true);
+    true
 }
